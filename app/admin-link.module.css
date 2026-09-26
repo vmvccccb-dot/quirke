@@ -1,0 +1,13 @@
+.loginLink {
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 12px;
+  background: #2b2c29;
+  color: #eee;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.loginLink:hover {
+  background: #3b3c38;
+}
