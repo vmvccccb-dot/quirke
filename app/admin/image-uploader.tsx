@@ -4,6 +4,7 @@ import { useState, type ChangeEvent } from 'react'
 import styles from './admin.module.css'
 
 const maxImages = 8
+const maxUploadSize = 4 * 1024 * 1024
 
 export default function ImageUploader({ projectId, initialValue }: { projectId: number | string; initialValue: string[] }) {
   const [images, setImages] = useState(initialValue.join('\n'))
@@ -17,6 +18,11 @@ export default function ImageUploader({ projectId, initialValue }: { projectId: 
     if (!files.length) return
     if (paths.length + files.length > maxImages) {
       setMessage(`Esta ficha admite hasta ${maxImages} imágenes.`)
+      input.value = ''
+      return
+    }
+    if (files.some((file) => file.size > maxUploadSize) || files.reduce((total, file) => total + file.size, 0) > maxUploadSize) {
+      setMessage('La selección completa no puede superar 4 MB por carga.')
       input.value = ''
       return
     }
@@ -53,7 +59,7 @@ export default function ImageUploader({ projectId, initialValue }: { projectId: 
       <div className={styles.imageUploadRow}>
         <div>
           <strong>Imágenes de la propiedad</strong>
-          <span>JPG, PNG, WebP o AVIF · máximo 6 MB cada una</span>
+          <span>JPG, PNG, WebP o AVIF · máximo 4 MB por carga</span>
         </div>
         <label className={styles.actionButton} htmlFor={`images-${projectId}`}>
           {uploading ? 'Subiendo…' : 'Subir...'}

@@ -86,6 +86,22 @@ export async function saveProject(formData: FormData) {
   redirect('/admin?saved=project')
 }
 
+export async function deleteProject(formData: FormData) {
+  await requireRole('admin')
+
+  const id = Number(field(formData, 'id', 12))
+  if (!Number.isSafeInteger(id) || id < 1) redirect('/admin?error=invalid-project')
+
+  const deleted = await getDatabase().query(
+    'DELETE FROM app.projects WHERE id = $1 RETURNING id',
+    [id],
+  )
+  if (deleted.rowCount !== 1) redirect('/admin?error=project-not-found')
+
+  refreshContent()
+  redirect('/admin?saved=deleted')
+}
+
 export async function createProject(formData: FormData) {
   const user = await requireUser()
   const title = field(formData, 'title', 200)

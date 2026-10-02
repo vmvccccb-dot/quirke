@@ -4,6 +4,10 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Quirke Inmobiliaria',
   description: 'Propiedades con carácter, inversión con visión.',
+  icons: {
+    icon: '/media/logo.png',
+    apple: '/media/logo.png',
+  },
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

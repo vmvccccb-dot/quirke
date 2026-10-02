@@ -1,13 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, unlink, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { del, put } from '@vercel/blob'
 import { getCurrentUser } from '../../../../lib/auth'
 
 export const runtime = 'nodejs'
 
 const maxFiles = 8
-const maxFileSize = 6 * 1024 * 1024
-const maxRequestSize = 32 * 1024 * 1024
+const maxFileSize = 4 * 1024 * 1024
+const maxRequestSize = 4 * 1024 * 1024
 
 function imageExtension(buffer: Buffer) {
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg'
@@ -36,32 +35,32 @@ export async function POST(request: Request) {
 
   const totalSize = files.reduce((total, file) => total + file.size, 0)
   if (totalSize > maxRequestSize || files.some((file) => file.size === 0 || file.size > maxFileSize)) {
-    return Response.json({ error: 'Cada imagen debe pesar hasta 6 MB y la selección no puede superar 32 MB.' }, { status: 400 })
+    return Response.json({ error: 'La selección completa no puede superar 4 MB por carga.' }, { status: 400 })
   }
 
-  const validatedFiles: Array<{ buffer: Buffer; extension: string }> = []
+  const validatedFiles: Array<{ buffer: Buffer; extension: string; contentType: string }> = []
   for (const file of files) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const extension = imageExtension(buffer)
     if (!extension || file.type !== `image/${extension === 'jpg' ? 'jpeg' : extension}`) {
       return Response.json({ error: 'Usa imágenes JPG, PNG, WebP o AVIF válidas.' }, { status: 400 })
     }
-    validatedFiles.push({ buffer, extension })
+    validatedFiles.push({ buffer, extension, contentType: file.type })
   }
 
-  const uploadDirectory = join(process.cwd(), 'public', 'media', 'uploads')
-  const savedPaths: string[] = []
+  const savedUrls: string[] = []
   try {
-    await mkdir(uploadDirectory, { recursive: true })
     for (const file of validatedFiles) {
-      const filename = `${randomUUID()}.${file.extension}`
-      await writeFile(join(uploadDirectory, filename), file.buffer, { flag: 'wx' })
-      savedPaths.push(`/media/uploads/${filename}`)
+      const blob = await put(`properties/${randomUUID()}.${file.extension}`, file.buffer, {
+        access: 'public',
+        contentType: file.contentType,
+      })
+      savedUrls.push(blob.url)
     }
   } catch {
-    await Promise.all(savedPaths.map((path) => unlink(join(uploadDirectory, path.split('/').at(-1)!)).catch(() => undefined)))
-    return Response.json({ error: 'No se pudieron guardar las imágenes en el servidor.' }, { status: 500 })
+    await Promise.all(savedUrls.map((url) => del(url).catch(() => undefined)))
+    return Response.json({ error: 'No se pudieron guardar las imágenes en el almacenamiento.' }, { status: 500 })
   }
 
-  return Response.json({ paths: savedPaths }, { status: 201 })
+  return Response.json({ paths: savedUrls }, { status: 201 })
 }

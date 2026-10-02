@@ -712,6 +712,27 @@
   padding-top: 17px;
 }
 
+.projectActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.deleteProjectButton {
+  min-height: 42px;
+  border: 1px solid #a34436;
+  padding: 0 13px;
+  background: transparent;
+  color: #79352c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.deleteProjectButton:hover {
+  background: #f4e9e5;
+}
+
 .emptyState {
   margin: 22px 0 0;
   border-left: 3px solid #b68c5a;

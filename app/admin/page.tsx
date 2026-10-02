@@ -3,6 +3,7 @@ import { getDatabase } from '../../lib/database'
 import { logout } from './login/actions'
 import { saveProject, saveWhatsApp } from './actions'
 import CreateProjectForm from './create-project-form'
+import DeleteProjectButton from './delete-project-button'
 import ImageUploader from './image-uploader'
 import styles from './admin.module.css'
 
@@ -29,6 +30,7 @@ const errorMessages: Record<string, string> = {
   'invalid-images': 'Usa hasta 8 rutas /media/ o direcciones HTTPS para las imágenes.',
   'save-project': 'No se pudo guardar la propiedad. Revisa e intenta otra vez.',
   'create-project': 'No se pudo crear el proyecto. Revisa e intenta otra vez.',
+  'project-not-found': 'No se encontró el proyecto que intentaste eliminar.',
   'invalid-whatsapp': 'Ingresa un teléfono internacional válido, solo con dígitos y prefijo de país.',
 }
 
@@ -55,6 +57,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
   const whatsappNumber = settingsResult.rows[0]?.value ?? ''
   const successMessage = query.saved === 'created'
     ? 'Proyecto creado.'
+    : query.saved === 'deleted'
+      ? 'Proyecto eliminado.'
     : query.saved === 'project'
       ? 'Propiedad guardada.'
       : query.saved === 'whatsapp'
@@ -154,7 +158,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                     ))}
                   </fieldset>
 
-                  <div className={styles.projectSaveRow}><span>Los cambios se reflejan en la web pública.</span><button className={styles.actionButton} type="submit">Guardar ficha</button></div>
+                  <div className={styles.projectSaveRow}>
+                    <span>Los cambios se reflejan en la web pública.</span>
+                    <div className={styles.projectActions}>
+                      <DeleteProjectButton title={project.title} />
+                      <button className={styles.actionButton} type="submit">Guardar ficha</button>
+                    </div>
+                  </div>
                 </form>
               ) : (
                 <article className={styles.projectEditor} key={project.id}>
