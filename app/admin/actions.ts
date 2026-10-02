@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireRole, requireUser } from '../../lib/auth'
@@ -83,7 +84,7 @@ export async function saveProject(formData: FormData) {
   }
 
   refreshContent()
-  redirect('/admin?saved=project')
+  redirect(`/admin?saved=project&projectId=${id}&savedAt=${randomUUID()}`)
 }
 
 export async function deleteProject(formData: FormData) {
@@ -130,6 +131,7 @@ export async function createProject(formData: FormData) {
   }
 
   const client = await getDatabase().connect()
+  let projectId: number
   try {
     await client.query('BEGIN')
     const created = await client.query<{ id: number }>(
@@ -138,7 +140,7 @@ export async function createProject(formData: FormData) {
        RETURNING id`,
       [title, type, description || null, location || null, rawPrice || null, status, imageUrls, user.id],
     )
-    const projectId = created.rows[0].id
+    projectId = created.rows[0].id
     const tags = await client.query<{ count: string }>(
       'SELECT COUNT(*)::text AS count FROM app.tags WHERE id = ANY($1::int[])',
       [tagIds],
@@ -162,7 +164,7 @@ export async function createProject(formData: FormData) {
   }
 
   refreshContent()
-  redirect('/admin?saved=created')
+  redirect(`/admin?saved=created&projectId=${projectId}&savedAt=${randomUUID()}`)
 }
 
 export async function saveWhatsApp(formData: FormData) {

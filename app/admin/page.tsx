@@ -22,7 +22,7 @@ type ProjectRow = {
 }
 
 type TagRow = { id: number; name: string }
-type SearchParams = Promise<{ saved?: string; error?: string }>
+type SearchParams = Promise<{ saved?: string; error?: string; projectId?: string; savedAt?: string }>
 
 const errorMessages: Record<string, string> = {
   'invalid-project': 'Revisa el título, tipo y estado de la propiedad.',
@@ -109,7 +109,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
             <div><p className={styles.eyebrow}>NUEVA FICHA</p><h2 id="create-project-heading">Crear proyecto</h2></div>
           </div>
           <div className={styles.projectList}>
-            <CreateProjectForm tags={tagsResult.rows} />
+            <CreateProjectForm
+              tags={tagsResult.rows}
+              clearImageDraftToken={query.saved === 'created' ? query.savedAt : undefined}
+            />
           </div>
         </section>
 
@@ -144,7 +147,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                     <label>Precio (opcional)<input name="price" type="number" min="0" step="0.01" defaultValue={project.price ?? ''} /></label>
                     <label className={styles.fullField}>Descripción<textarea name="description" defaultValue={project.description ?? ''} rows={4} maxLength={5000} /></label>
                     <div className={`${styles.fullField} ${styles.projectImages}`}>
-                      <ImageUploader projectId={project.id} initialValue={project.image_urls} />
+                      <ImageUploader
+                        projectId={project.id}
+                        initialValue={project.image_urls}
+                        clearDraftToken={query.saved === 'project' && query.projectId === String(project.id) ? query.savedAt : undefined}
+                      />
                     </div>
                   </div>
 

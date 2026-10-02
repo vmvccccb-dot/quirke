@@ -1,16 +1,43 @@
 'use client'
 
-import { useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import styles from './admin.module.css'
 
 const maxImages = 8
 const maxUploadSize = 4 * 1024 * 1024
 
-export default function ImageUploader({ projectId, initialValue }: { projectId: number | string; initialValue: string[] }) {
+export default function ImageUploader({ projectId, initialValue, clearDraftToken }: { projectId: number | string; initialValue: string[]; clearDraftToken?: string }) {
   const [images, setImages] = useState(initialValue.join('\n'))
   const [message, setMessage] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [draftReady, setDraftReady] = useState(false)
+  const initialImages = initialValue.join('\n')
+  const draftKey = `quirke:project-images:${projectId}`
+  const clearMarkerKey = `${draftKey}:saved`
   const paths = images.split('\n').map((path) => path.trim()).filter(Boolean)
+
+  useEffect(() => {
+    const previousClearToken = window.sessionStorage.getItem(clearMarkerKey)
+    if (clearDraftToken && previousClearToken !== clearDraftToken) {
+      window.sessionStorage.removeItem(draftKey)
+      setImages(initialImages)
+      window.sessionStorage.setItem(clearMarkerKey, clearDraftToken)
+    } else {
+      const savedDraft = window.sessionStorage.getItem(draftKey)
+      if (savedDraft !== null) setImages(savedDraft)
+    }
+    setDraftReady(true)
+  }, [clearDraftToken, clearMarkerKey, draftKey, initialImages])
+
+  useEffect(() => {
+    if (!draftReady) return
+    if (clearDraftToken && window.sessionStorage.getItem(clearMarkerKey) === clearDraftToken && images === initialImages) {
+      window.sessionStorage.removeItem(draftKey)
+      return
+    }
+    if (images.trim()) window.sessionStorage.setItem(draftKey, images)
+    else window.sessionStorage.removeItem(draftKey)
+  }, [clearDraftToken, clearMarkerKey, draftKey, draftReady, images, initialImages])
 
   async function uploadImages(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget
@@ -40,7 +67,7 @@ export default function ImageUploader({ projectId, initialValue }: { projectId: 
         return
       }
       setImages((current) => [...current.split('\n').map((path) => path.trim()).filter(Boolean), ...result.paths!].join('\n'))
-      setMessage(`${result.paths.length} imagen${result.paths.length === 1 ? '' : 'es'} subida${result.paths.length === 1 ? '' : 's'}.`)
+      setMessage(`${result.paths.length} imagen${result.paths.length === 1 ? '' : 'es'} subida${result.paths.length === 1 ? '' : 's'} y guardada${result.paths.length === 1 ? '' : 's'} temporalmente.`)
     } catch {
       setMessage('No se pudo conectar para subir las imágenes.')
     } finally {
@@ -93,6 +120,7 @@ export default function ImageUploader({ projectId, initialValue }: { projectId: 
         </div>
       )}
       <span className={styles.imageCount}>{paths.length} de {maxImages} imágenes</span>
+      <span className={styles.imageCount}>La selección se conserva en esta pestaña hasta guardar el proyecto.</span>
       {message && <p className={styles.imageUploadMessage} role="status">{message}</p>}
     </div>
   )

@@ -4,7 +4,7 @@ import styles from './admin.module.css'
 
 type TagRow = { id: number; name: string }
 
-export default function CreateProjectForm({ tags }: { tags: TagRow[] }) {
+export default function CreateProjectForm({ tags, clearImageDraftToken }: { tags: TagRow[]; clearImageDraftToken?: string }) {
   return (
     <form className={styles.projectEditor} action={createProject}>
       <div className={styles.projectEditorHeading}>
@@ -25,7 +25,7 @@ export default function CreateProjectForm({ tags }: { tags: TagRow[] }) {
         <label>Precio (opcional)<input name="price" type="number" min="0" step="0.01" /></label>
         <label className={styles.fullField}>Descripción<textarea name="description" rows={4} maxLength={5000} /></label>
         <div className={`${styles.fullField} ${styles.projectImages}`}>
-          <ImageUploader projectId="new" initialValue={[]} />
+          <ImageUploader projectId="new" initialValue={[]} clearDraftToken={clearImageDraftToken} />
         </div>
       </div>
 
