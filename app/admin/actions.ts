@@ -36,7 +36,7 @@ export async function saveProject(formData: FormData) {
     .map(Number)
     .filter((value) => Number.isSafeInteger(value) && value > 0))]
 
-  if (!Number.isSafeInteger(id) || id < 1 || !title || !type || !['active', 'draft'].includes(status)) {
+  if (!Number.isSafeInteger(id) || id < 1 || !title || !type || !['active', 'inactive'].includes(status)) {
     redirect('/admin?error=invalid-project')
   }
   if (rawPrice && (!/^\d+(\.\d{1,2})?$/.test(rawPrice) || Number(rawPrice) < 0)) {
@@ -84,6 +84,69 @@ export async function saveProject(formData: FormData) {
 
   refreshContent()
   redirect('/admin?saved=project')
+}
+
+export async function createProject(formData: FormData) {
+  const user = await requireUser()
+  const title = field(formData, 'title', 200)
+  const type = field(formData, 'type', 50)
+  const description = field(formData, 'description', 5000)
+  const location = field(formData, 'location', 200)
+  const rawPrice = field(formData, 'price', 30)
+  const status = field(formData, 'status', 30)
+  const imageUrls = field(formData, 'image_urls', 2000)
+    .split('\n')
+    .map((image) => image.trim())
+    .filter(Boolean)
+  const tagIds = [...new Set(formData.getAll('tag_ids')
+    .filter((value): value is string => typeof value === 'string')
+    .map(Number)
+    .filter((value) => Number.isSafeInteger(value) && value > 0))]
+
+  if (!title || !type || !['active', 'inactive'].includes(status)) {
+    redirect('/admin?error=invalid-project')
+  }
+  if (rawPrice && (!/^\d+(\.\d{1,2})?$/.test(rawPrice) || Number(rawPrice) < 0)) {
+    redirect('/admin?error=invalid-price')
+  }
+  if (imageUrls.length > 8 || imageUrls.some((image) => !image.startsWith('/media/') && !/^https:\/\//i.test(image))) {
+    redirect('/admin?error=invalid-images')
+  }
+
+  const client = await getDatabase().connect()
+  try {
+    await client.query('BEGIN')
+    const created = await client.query<{ id: number }>(
+      `INSERT INTO app.projects (title, type, description, location, price, status, image_urls, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id`,
+      [title, type, description || null, location || null, rawPrice || null, status, imageUrls, user.id],
+    )
+    const projectId = created.rows[0].id
+    const tags = await client.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM app.tags WHERE id = ANY($1::int[])',
+      [tagIds],
+    )
+    if (Number(tags.rows[0]?.count ?? 0) !== tagIds.length) throw new Error('Etiqueta no válida.')
+
+    if (tagIds.length) {
+      await client.query(
+        `INSERT INTO app.project_tags (project_id, tag_id)
+         SELECT $1, tag_id FROM UNNEST($2::int[]) AS tag_id`,
+        [projectId, tagIds],
+      )
+    }
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('No se pudo crear el proyecto.', error)
+    redirect('/admin?error=create-project')
+  } finally {
+    client.release()
+  }
+
+  refreshContent()
+  redirect('/admin?saved=created')
 }
 
 export async function saveWhatsApp(formData: FormData) {

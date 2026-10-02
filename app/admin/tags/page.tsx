@@ -44,7 +44,7 @@ export default async function TagsPage({ searchParams }: { searchParams: SearchP
           <span><b>Quirke</b><small>INMOBILIARIA</small></span>
         </a>
         <nav className={styles.dashboardNav} aria-label="Administración">
-          {user.role === 'admin' && <a href="/admin">Propiedades y sitio</a>}
+          <a href="/admin">Propiedades</a>
           <a className={styles.navActive} href="/admin/tags">Etiquetas</a>
         </nav>
         <div className={styles.headerUser}>

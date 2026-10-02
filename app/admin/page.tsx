@@ -1,8 +1,9 @@
-import { redirect } from 'next/navigation'
 import { requireUser } from '../../lib/auth'
 import { getDatabase } from '../../lib/database'
 import { logout } from './login/actions'
 import { saveProject, saveWhatsApp } from './actions'
+import CreateProjectForm from './create-project-form'
+import ImageUploader from './image-uploader'
 import styles from './admin.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -27,12 +28,12 @@ const errorMessages: Record<string, string> = {
   'invalid-price': 'El precio debe ser un número positivo con hasta dos decimales.',
   'invalid-images': 'Usa hasta 8 rutas /media/ o direcciones HTTPS para las imágenes.',
   'save-project': 'No se pudo guardar la propiedad. Revisa e intenta otra vez.',
+  'create-project': 'No se pudo crear el proyecto. Revisa e intenta otra vez.',
   'invalid-whatsapp': 'Ingresa un teléfono internacional válido, solo con dígitos y prefijo de país.',
 }
 
 export default async function AdminPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser()
-  if (user.role !== 'admin') redirect('/admin/tags')
 
   const [projectsResult, tagsResult, settingsResult, query] = await Promise.all([
     getDatabase().query<ProjectRow>(
@@ -52,11 +53,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
   ])
 
   const whatsappNumber = settingsResult.rows[0]?.value ?? ''
-  const successMessage = query.saved === 'project'
-    ? 'Propiedad guardada.'
-    : query.saved === 'whatsapp'
-      ? 'Número de WhatsApp actualizado.'
-      : null
+  const successMessage = query.saved === 'created'
+    ? 'Proyecto creado.'
+    : query.saved === 'project'
+      ? 'Propiedad guardada.'
+      : query.saved === 'whatsapp'
+        ? 'Número de WhatsApp actualizado.'
+        : null
 
   return (
     <main className={styles.dashboard}>
@@ -76,14 +79,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
       </header>
 
       <section className={styles.managementMain}>
-        <p className={styles.eyebrow}>QUIRKE · ADMINISTRACIÓN</p>
-        <h1>Contenido del sitio</h1>
-        <p className={styles.managementIntro}>Actualiza la información que ven las personas en la web pública.</p>
+        <p className={styles.eyebrow}>QUIRKE · {user.role === 'admin' ? 'ADMINISTRACIÓN' : 'CONTENIDO'}</p>
+        <h1>{user.role === 'admin' ? 'Contenido del sitio' : 'Proyectos'}</h1>
+        <p className={styles.managementIntro}>{user.role === 'admin' ? 'Actualiza la información que ven las personas en la web pública.' : 'Crea proyectos para el sitio y consulta las propiedades existentes.'}</p>
 
         {query.error && <p className={styles.noticeError} role="alert">{errorMessages[query.error] ?? 'No se pudo completar el cambio.'}</p>}
         {successMessage && <p className={styles.noticeSuccess} role="status">{successMessage}</p>}
 
-        <section className={styles.settingsSection} aria-labelledby="whatsapp-heading">
+        {user.role === 'admin' && <section className={styles.settingsSection} aria-labelledby="whatsapp-heading">
           <div className={styles.sectionTitleRow}>
             <div><p className={styles.eyebrow}>CONTACTO PÚBLICO</p><h2 id="whatsapp-heading">WhatsApp</h2></div>
             <span className={styles.sectionNumber}>01</span>
@@ -95,11 +98,20 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
               <button className={styles.actionButton} type="submit">Guardar número</button>
             </div>
           </form>
+        </section>}
+
+        <section className={styles.projectsSection} aria-labelledby="create-project-heading">
+          <div className={styles.sectionTitleRow}>
+            <div><p className={styles.eyebrow}>NUEVA FICHA</p><h2 id="create-project-heading">Crear proyecto</h2></div>
+          </div>
+          <div className={styles.projectList}>
+            <CreateProjectForm tags={tagsResult.rows} />
+          </div>
         </section>
 
         <section className={styles.projectsSection} aria-labelledby="projects-heading">
           <div className={styles.sectionTitleRow}>
-            <div><p className={styles.eyebrow}>FICHAS PUBLICADAS</p><h2 id="projects-heading">Propiedades</h2></div>
+            <div><p className={styles.eyebrow}>FICHAS EXISTENTES</p><h2 id="projects-heading">Propiedades</h2></div>
             <span className={styles.itemCount}>{projectsResult.rows.length} fichas</span>
           </div>
 
@@ -107,16 +119,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
             <p className={styles.emptyState}>Todavía no hay propiedades cargadas. Ejecuta la carga inicial indicada en la guía de configuración.</p>
           ) : (
             <div className={styles.projectList}>
-              {projectsResult.rows.map((project) => (
+              {projectsResult.rows.map((project) => user.role === 'admin' ? (
                 <form className={styles.projectEditor} action={saveProject} key={project.id}>
                   <input type="hidden" name="id" value={project.id} />
                   <div className={styles.projectEditorHeading}>
                     <div><span className={styles.projectId}>FICHA {String(project.id).padStart(2, '0')}</span><h3>{project.title}</h3></div>
                     <label className={styles.statusControl}>
                       <span>Visibilidad</span>
-                      <select name="status" defaultValue={project.status}>
-                        <option value="active">Visible</option>
-                        <option value="draft">Borrador</option>
+                      <select name="status" defaultValue={project.status === 'active' ? 'active' : 'inactive'}>
+                        <option value="active">Activo</option>
+                        <option value="inactive">Inactivo</option>
                       </select>
                     </label>
                   </div>
@@ -127,7 +139,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                     <label>Ubicación<input name="location" defaultValue={project.location ?? ''} maxLength={200} /></label>
                     <label>Precio (opcional)<input name="price" type="number" min="0" step="0.01" defaultValue={project.price ?? ''} /></label>
                     <label className={styles.fullField}>Descripción<textarea name="description" defaultValue={project.description ?? ''} rows={4} maxLength={5000} /></label>
-                    <label className={styles.fullField}>Imágenes, una ruta o URL por línea<textarea name="image_urls" defaultValue={project.image_urls.join('\n')} rows={3} /></label>
+                    <div className={`${styles.fullField} ${styles.projectImages}`}>
+                      <ImageUploader projectId={project.id} initialValue={project.image_urls} />
+                    </div>
                   </div>
 
                   <fieldset className={styles.tagChoices}>
@@ -142,6 +156,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
 
                   <div className={styles.projectSaveRow}><span>Los cambios se reflejan en la web pública.</span><button className={styles.actionButton} type="submit">Guardar ficha</button></div>
                 </form>
+              ) : (
+                <article className={styles.projectEditor} key={project.id}>
+                  <div className={styles.projectEditorHeading}>
+                    <div><span className={styles.projectId}>FICHA {String(project.id).padStart(2, '0')}</span><h3>{project.title}</h3></div>
+                    <span className={project.status === 'active' ? styles.activeBadge : styles.inactiveBadge}>{project.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+                  </div>
+                  <p className={styles.publisherProjectDetails}>{project.type}{project.location ? ` · ${project.location}` : ''}</p>
+                </article>
               ))}
             </div>
           )}
